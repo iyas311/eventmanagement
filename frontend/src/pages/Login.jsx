@@ -20,13 +20,13 @@ export default function Login() {
     params.append('password', password);
 
     try {
-      const response = await axios.post('http://localhost:8001/login', params, {
+      const response = await axios.post('/api/users/login', params, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       });
       localStorage.setItem('token', response.data.access_token);
       
       // Get profile to store user ID
-      const profileRes = await axios.get('http://localhost:8001/profile', {
+      const profileRes = await axios.get('/api/users/profile', {
         headers: { Authorization: `Bearer ${response.data.access_token}` }
       });
       localStorage.setItem('user', JSON.stringify(profileRes.data));

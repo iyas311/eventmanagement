@@ -13,7 +13,7 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      await axios.post('http://localhost:8001/register', formData);
+      await axios.post('/api/users/register', formData);
       navigate('/login');
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed');

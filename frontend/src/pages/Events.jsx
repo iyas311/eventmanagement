@@ -20,7 +20,7 @@ export default function Events() {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get('http://localhost:8002/events');
+      const response = await axios.get('/api/events/events');
       setEvents(response.data);
     } catch (err) {
       console.error("Failed to fetch events", err);
@@ -33,7 +33,7 @@ export default function Events() {
     e.preventDefault();
     try {
       const user = JSON.parse(localStorage.getItem('user'));
-      await axios.post('http://localhost:8002/events', { ...newEvent, organizer_id: user?.id });
+      await axios.post('/api/events/events', { ...newEvent, organizer_id: user?.id });
       setShowModal(false);
       setNewEvent({ title: '', description: '', date: '', capacity: 100, price: 0, image_url: '' });
       fetchEvents();
@@ -54,7 +54,7 @@ export default function Events() {
     setBookingStatus("Finalizing your booking...");
     try {
       // 1. Create Booking
-      const bookRes = await axios.post('http://localhost:8003/bookings', {
+      const bookRes = await axios.post('/api/bookings/bookings', {
         user_id: user.id,
         event_id: selectedEvent.id,
         quantity: bookingDetails.quantity
@@ -63,7 +63,7 @@ export default function Events() {
       const booking = bookRes.data;
 
       // 2. Process Payment (Mock)
-      await axios.post('http://localhost:8004/pay', {
+      await axios.post('/api/payment/pay', {
         booking_id: booking.id,
         amount: selectedEvent.price * bookingDetails.quantity,
         payment_method: 'credit_card'

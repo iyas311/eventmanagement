@@ -18,9 +18,9 @@ export default function MyBookings() {
 
       try {
         const [bookRes, ticketRes, eventsRes] = await Promise.all([
-          axios.get(`http://localhost:8003/bookings/user/${user.id}`),
-          axios.get(`http://localhost:8005/tickets/user/${user.id}`),
-          axios.get(`http://localhost:8002/events`)
+          axios.get(`/api/bookings/bookings/user/${user.id}`),
+          axios.get(`/api/tickets/tickets/user/${user.id}`),
+          axios.get(`/api/events/events`)
         ]);
         setBookings(bookRes.data);
         setTickets(ticketRes.data);
