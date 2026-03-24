@@ -8,7 +8,7 @@ export default function Events() {
   const [bookingStatus, setBookingStatus] = useState(null);
 
   const [showModal, setShowModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({ title: '', description: '', date: '', capacity: 100, price: 0, image_url: '' });
+  const [newEvent, setNewEvent] = useState({ title: '', description: '', date: '', capacity: 100, price: 0, image_url: '', location: '' });
 
   const [bookingStep, setBookingStep] = useState(null); // null, 'details', 'payment', 'success'
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -35,7 +35,7 @@ export default function Events() {
       const user = JSON.parse(localStorage.getItem('user'));
       await axios.post('/api/events/events', { ...newEvent, organizer_id: user?.id });
       setShowModal(false);
-      setNewEvent({ title: '', description: '', date: '', capacity: 100, price: 0, image_url: '' });
+      setNewEvent({ title: '', description: '', date: '', capacity: 100, price: 0, image_url: '', location: '' });
       fetchEvents();
     } catch (err) {
       alert("Failed to create event");
@@ -123,6 +123,10 @@ export default function Events() {
               <div className="input-group">
                 <label className="input-label">Image URL</label>
                 <input className="input-field" placeholder="https://images.unsplash.com/..." value={newEvent.image_url} onChange={e => setNewEvent({...newEvent, image_url: e.target.value})} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Location (Venue)</label>
+                <input className="input-field" placeholder="Grand Ballroom, Hotel X" required value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
               </div>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                 <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowModal(false)}>Cancel</button>
@@ -227,9 +231,12 @@ export default function Events() {
                 <h3 style={{ fontSize: '1.4rem', marginBottom: '0.5rem' }}>{event.title}</h3>
                 <p style={{ color: 'var(--text-sub)', marginBottom: '1.5rem', flex: 1, fontSize: '0.95rem' }}>{event.description}</p>
                 
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-sub)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Calendar size={16}/> {event.date}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Users size={16}/> {event.capacity} left</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: 'var(--text-sub)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Calendar size={14}/> {event.date}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Users size={14}/> {event.capacity} left</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', gridColumn: 'span 2' }}>
+                    <MapPin size={14}/> {event.location || 'Online / TBA'}
+                  </div>
                 </div>
 
                 <div className="flex-between" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>

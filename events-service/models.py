@@ -9,5 +9,6 @@ class Event(Base):
     date = Column(String)
     capacity = Column(Integer)
     price = Column(Float)
+    location = Column(String)
     image_url = Column(String, nullable=True)
     organizer_id = Column(Integer, nullable=True)

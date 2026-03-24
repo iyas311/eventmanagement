@@ -8,6 +8,7 @@ class EventBase(BaseModel):
     date: str
     capacity: int
     price: float
+    location: str
     image_url: Optional[str] = None
     organizer_id: Optional[int] = None
 
