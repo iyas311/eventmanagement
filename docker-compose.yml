@@ -26,6 +26,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8001/\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   events-service:
     build: ./events-service
@@ -37,6 +42,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8002/\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   booking-service:
     build: ./booking-service
@@ -49,6 +59,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8003/\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   payment-service:
     build: ./payment-service
@@ -62,6 +77,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8004/\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   ticket-service:
     build: ./ticket-service
@@ -74,6 +94,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8005/\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   notification-service:
     build: ./notification-service
@@ -85,11 +110,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8006/\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build: ./frontend
     ports:
       - "3000:80"
+    depends_on:
+      users-service:
+        condition: service_healthy
+      events-service:
+        condition: service_healthy
+      booking-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      ticket-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
 
 volumes:
   postgres_data:
