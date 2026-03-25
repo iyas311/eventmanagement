@@ -78,11 +78,11 @@ export default function MyBookings() {
         <style>{`
           .ticket-container {
             display: flex;
-            background: #1e293b;
+            background: var(--bg-card);
             border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: var(--glass-shadow);
+            border: 1px solid var(--border);
             position: relative;
             width: 100%;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -98,16 +98,16 @@ export default function MyBookings() {
             display: flex;
             flex-direction: column;
             position: relative;
-            background-color: #1e293b;
-            background-image: linear-gradient(rgba(30, 41, 59, 0.85), rgba(30, 41, 59, 0.95)), 
+            background-color: var(--bg-card);
+            background-image: linear-gradient(var(--bg-card), var(--bg-card)), 
                               url(${event.image_url || 'https://image.pollinations.ai/prompt/Event%20Background?width=1000&height=500&nologo=true'});
             background-size: cover;
             background-position: center;
           }
           .ticket-stub {
             width: 180px;
-            background: rgba(255, 255, 255, 0.03);
-            border-left: 2px dashed rgba(255, 255, 255, 0.1);
+            background: rgba(var(--primary-rgb, 99, 102, 241), 0.05);
+            border-left: 2px dashed var(--border);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -121,7 +121,7 @@ export default function MyBookings() {
             left: -11px;
             width: 20px;
             height: 20px;
-            background: #0f172a;
+            background: var(--bg-dark);
             border-radius: 50%;
           }
           .ticket-stub::before { top: -11px; }
@@ -178,12 +178,12 @@ export default function MyBookings() {
              </div>
           </div>
           
-          <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.5rem', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', paddingRight: '4.5rem' }}>{event.title}</h3>
+          <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.5rem', color: 'var(--text-main)', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', paddingRight: '4.5rem' }}>{event.title}</h3>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1.2rem', marginBottom: '1rem' }}>
             <div>
               <div className="ticket-label"><User size={10} /> Attendee</div>
-              <div className="ticket-value">{user?.username || 'Guest'}</div>
+              <div className="ticket-value">{booking.attendee_name || user?.username}</div>
             </div>
             <div>
               <div className="ticket-label"><Calendar size={10} /> Date</div>
@@ -320,7 +320,7 @@ export default function MyBookings() {
           left: 0,
           width: '100%',
           height: '100%',
-          backgroundColor: 'rgba(2, 6, 23, 0.95)',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
           backdropFilter: 'blur(10px)',
           display: 'flex',
           justifyContent: 'center',

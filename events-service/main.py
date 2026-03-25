@@ -56,6 +56,20 @@ def get_event(event_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Event not found")
     return event
 
+@app.put("/events/{event_id}", response_model=EventOut)
+def update_event(event_id: int, event_update: EventCreate, db: Session = Depends(get_db)):
+    db_event = db.query(Event).filter(Event.id == event_id).first()
+    if not db_event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    update_data = event_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_event, key, value)
+    
+    db.commit()
+    db.refresh(db_event)
+    return db_event
+
 @app.put("/events/{event_id}/capacity")
 def reduce_capacity(event_id: int, amount: int = 1, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.id == event_id).first()
@@ -67,3 +81,16 @@ def reduce_capacity(event_id: int, amount: int = 1, db: Session = Depends(get_db
     db.commit()
     db.refresh(event)
     return event
+
+@app.get("/events/organizer/{organizer_id}", response_model=List[EventOut])
+def get_organizer_events(organizer_id: int, db: Session = Depends(get_db)):
+    return db.query(Event).filter(Event.organizer_id == organizer_id).all()
+
+@app.delete("/events/{event_id}")
+def delete_event(event_id: int, db: Session = Depends(get_db)):
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    db.delete(event)
+    db.commit()
+    return {"message": "Event deleted successfully"}

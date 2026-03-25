@@ -7,6 +7,8 @@ import Register from './pages/Register';
 import './index.css';
 
 import MyBookings from './pages/MyBookings';
+import MyEvents from './pages/MyEvents';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/bookings" element={<MyBookings />} />
+            <Route path="/my-events" element={<MyEvents />} />
+            <Route path="/admin" element={<AdminDashboard />} />
           </Routes>
         </main>
       </div>

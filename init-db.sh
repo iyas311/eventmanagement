@@ -1,11 +1,19 @@
 #!/bin/bash
 set -e
 
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    CREATE DATABASE users_db;
-    CREATE DATABASE events_db;
-    CREATE DATABASE booking_db;
-    CREATE DATABASE payment_db;
-    CREATE DATABASE ticket_db;
-    CREATE DATABASE notification_db;
+# Function to create databases
+create_databases() {
+    local database=$1
+    echo "  Creating database '$database'"
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        CREATE DATABASE $database;
 EOSQL
+}
+
+if [ -n "$POSTGRES_MULTIPLE_DATABASES" ]; then
+    echo "Multiple database creation requested: $POSTGRES_MULTIPLE_DATABASES"
+    for db in $(echo $POSTGRES_MULTIPLE_DATABASES | tr ',' ' '); do
+        create_databases $db
+    done
+    echo "Multiple databases created"
+fi

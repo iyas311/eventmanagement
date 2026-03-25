@@ -29,6 +29,8 @@ def read_root():
 
 EVENTS_SERVICE_URL = os.getenv("EVENTS_SERVICE_URL", "http://localhost:8002")
 
+NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://localhost:8006")
+
 @app.post("/bookings", response_model=BookingOut)
 def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
     try:
@@ -54,12 +56,41 @@ def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
         event_id=booking.event_id,
         status="PENDING",
         amount=event_data.get("price", 0.0) * booking.quantity,
-        quantity=booking.quantity
+        quantity=booking.quantity,
+        attendee_name=booking.attendee_name,
+        email=booking.email
     )
     db.add(new_booking)
     db.commit()
     db.refresh(new_booking)
+
+    # Send notification to Attendee
+    try:
+        requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+            "user_id": new_booking.user_id,
+            "recipient": new_booking.email or f"User {new_booking.user_id}",
+            "message": f"Booking successful! You've secured a spot for '{event_data.get('title')}'. 🎉"
+        })
+    except Exception as e:
+        print(f"Failed to notify attendee: {e}")
+
+    # Send notification to Organizer
+    organizer_id = event_data.get("organizer_id")
+    if organizer_id:
+        try:
+            requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+                "user_id": organizer_id,
+                "recipient": f"Organizer {organizer_id}",
+                "message": f"Great news! A new booking has been made for your event '{event_data.get('title')}'. 📈"
+            })
+        except Exception as e:
+            print(f"Failed to notify organizer: {e}")
+
     return new_booking
+
+@app.get("/bookings", response_model=List[BookingOut])
+def get_all_bookings(db: Session = Depends(get_db)):
+    return db.query(Booking).all()
 
 @app.get("/bookings/user/{user_id}", response_model=List[BookingOut])
 def get_user_bookings(user_id: int, db: Session = Depends(get_db)):
@@ -80,4 +111,29 @@ def pay_booking(booking_id: int, db: Session = Depends(get_db)):
     booking.status = "PAID"
     db.commit()
     db.refresh(booking)
+
+    # Send notification for payment
+    try:
+        # Get event data for organizer_id
+        ev_res = requests.get(f"{EVENTS_SERVICE_URL}/events/{booking.event_id}")
+        event_data = ev_res.json() if ev_res.status_code == 200 else {}
+        
+        # Notify Attendee
+        requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+            "user_id": booking.user_id,
+            "recipient": booking.email or f"User {booking.user_id}",
+            "message": f"Payment successful! Your ticket for '{event_data.get('title')}' is now confirmed. 🎟️"
+        })
+        
+        # Notify Organizer
+        organizer_id = event_data.get("organizer_id")
+        if organizer_id:
+            requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+                "user_id": organizer_id,
+                "recipient": f"Organizer {organizer_id}",
+                "message": f"Success! A booking for '{event_data.get('title')}' has been paid and confirmed. 💰"
+            })
+    except Exception as e:
+        print(f"Failed to send payment notifications: {e}")
+
     return booking

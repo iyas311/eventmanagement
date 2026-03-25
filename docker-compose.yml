@@ -7,6 +7,7 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=postgres
+      - POSTGRES_MULTIPLE_DATABASES=users_db,events_db,booking_db,payment_db,ticket_db,notification_db
     volumes:
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
       - postgres_data:/var/lib/postgresql/data
@@ -56,6 +57,7 @@ services:
       - PORT=8003
       - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/booking_db
       - EVENTS_SERVICE_URL=http://events-service:8002
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8006
     depends_on:
       db:
         condition: service_healthy
@@ -126,6 +128,25 @@ services:
       timeout: 5s
       retries: 5
 
+  admin-service:
+    build: ./admin-service
+    ports:
+      - "8008:8008"
+    environment:
+      - PORT=8008
+      - BOOKING_SERVICE_URL=http://booking-service:8003
+      - EVENTS_SERVICE_URL=http://events-service:8002
+    depends_on:
+      booking-service:
+        condition: service_healthy
+      events-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8008/\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   frontend:
     build: ./frontend
     ports:
@@ -144,6 +165,8 @@ services:
       notification-service:
         condition: service_healthy
       ai-service:
+        condition: service_healthy
+      admin-service:
         condition: service_healthy
 
 volumes:

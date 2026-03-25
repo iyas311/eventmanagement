@@ -9,3 +9,5 @@ class Booking(Base):
     status = Column(String, default="PENDING")
     amount = Column(Float)
     quantity = Column(Integer, default=1)
+    attendee_name = Column(String, nullable=True)
+    email = Column(String, nullable=True)

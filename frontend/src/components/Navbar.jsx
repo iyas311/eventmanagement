@@ -1,8 +1,39 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, User, LogOut } from 'lucide-react';
+import axios from 'axios';
+import { Calendar, User, LogOut, Bell, Sun, Moon } from 'lucide-react';
+import NotificationDrawer from './NotificationDrawer';
 
 export default function Navbar() {
   const user = JSON.parse(localStorage.getItem('user'));
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+
+  const fetchUnreadCount = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await axios.get(`/api/notifications/notifications/${user.id}`);
+      const count = Array.isArray(res.data) ? res.data.length : 0;
+      console.log(`Navbar: Fetched ${count} notifications for user ${user.id}`);
+      setUnreadCount(count);
+    } catch (err) {
+      console.error("Navbar: Notification fetch failed", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 5000); // Poll every 5s for better responsiveness
+    return () => clearInterval(interval);
+  }, [user?.id]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   const logout = () => {
     localStorage.removeItem('token');
@@ -21,8 +52,46 @@ export default function Navbar() {
           <Link to="/events" className="nav-link">Explore Events</Link>
           {user ? (
             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+              <Link to="/my-events" className="nav-link">My Events</Link>
               <Link to="/bookings" className="nav-link">My Bookings</Link>
-              <span className="nav-link" style={{ color: 'var(--primary)', fontWeight: 600 }}>Hi, {user.username}</span>
+              {user.role === 'admin' && <Link to="/admin" className="nav-link" style={{ color: 'var(--primary)' }}>Admin</Link>}
+              
+              <button 
+                onClick={toggleTheme} 
+                className="nav-link" 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                {theme === 'dark' ? <Sun size={20} color="white" /> : <Moon size={20} color="black" />}
+              </button>
+
+              <div style={{ position: 'relative' }}>
+                <button 
+                  onClick={() => { setIsNotifOpen(!isNotifOpen); setUnreadCount(0); }} 
+                  className="nav-link" 
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, position: 'relative' }}
+                >
+                  <Bell size={20} color={theme === 'dark' ? 'white' : 'black'} style={{ opacity: isNotifOpen ? 1 : 0.8 }} />
+                  {unreadCount > 0 && (
+                    <span style={{ 
+                      position: 'absolute', 
+                      top: '-2px', 
+                      right: '-2px', 
+                      width: '10px', 
+                      height: '10px', 
+                      background: '#ef4444', 
+                      borderRadius: '50%', 
+                      border: '2px solid var(--bg-dark)' 
+                    }}></span>
+                  )}
+                </button>
+                <NotificationDrawer 
+                  isOpen={isNotifOpen} 
+                  onClose={() => setIsNotifOpen(false)} 
+                  userId={user.id} 
+                />
+              </div>
+
+              <span className="nav-link" style={{ color: 'var(--primary)', fontWeight: 600 }}>Hi, {user.first_name || user.username}</span>
               <button onClick={logout} className="btn btn-outline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
                 <LogOut size={16} /> Logout
               </button>

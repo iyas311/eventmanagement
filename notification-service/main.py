@@ -32,6 +32,7 @@ def send_notification(notification: NotificationCreate, db: Session = Depends(ge
     logging.info(f"Sending notification to {notification.recipient}: {notification.message}")
     
     new_log = NotificationLog(
+        user_id=notification.user_id,
         recipient=notification.recipient,
         message=notification.message,
         status="SENT"
@@ -40,3 +41,13 @@ def send_notification(notification: NotificationCreate, db: Session = Depends(ge
     db.commit()
     db.refresh(new_log)
     return new_log
+
+@app.get("/notifications/{user_id}", response_model=list[NotificationOut])
+def get_notifications(user_id: int, db: Session = Depends(get_db)):
+    return db.query(NotificationLog).filter(NotificationLog.user_id == user_id).order_by(NotificationLog.id.desc()).all()
+
+@app.delete("/notifications/user/{user_id}")
+def clear_notifications(user_id: int, db: Session = Depends(get_db)):
+    db.query(NotificationLog).filter(NotificationLog.user_id == user_id).delete()
+    db.commit()
+    return {"message": "Notifications cleared"}

@@ -30,6 +30,16 @@ export default defineConfig({
         target: 'http://localhost:8005',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/tickets/, '')
+      },
+      '/api/notifications': {
+        target: 'http://localhost:8006',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/notifications/, '')
+      },
+      '/api/admin': {
+        target: 'http://localhost:8008',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/admin/, '')
       }
     }
   }

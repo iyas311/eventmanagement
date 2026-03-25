@@ -3,7 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
 export default function Register() {
-  const [formData, setFormData] = useState({ username: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ 
+    username: '', 
+    email: '', 
+    password: '',
+    first_name: '',
+    last_name: '',
+    phone_number: ''
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -23,11 +30,35 @@ export default function Register() {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '4rem 0' }}>
-      <div className="glass-card" style={{ width: '100%', maxWidth: '400px' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem 0' }}>
+      <div className="glass-card" style={{ width: '100%', maxWidth: '500px' }}>
         <h2 style={{ textAlign: 'center', marginBottom: '2rem', fontSize: '2rem' }}>Join <span className="text-gradient">EventHub</span></h2>
         {error && <div style={{ color: '#ef4444', marginBottom: '1rem', textAlign: 'center' }}>{error}</div>}
         <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="input-group">
+              <label className="input-label">First Name</label>
+              <input 
+                type="text" 
+                required 
+                className="input-field" 
+                placeholder="John"
+                value={formData.first_name}
+                onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+              />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Last Name</label>
+              <input 
+                type="text" 
+                required 
+                className="input-field" 
+                placeholder="Doe"
+                value={formData.last_name}
+                onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+              />
+            </div>
+          </div>
           <div className="input-group">
             <label className="input-label">Username</label>
             <input 
@@ -48,6 +79,17 @@ export default function Register() {
               placeholder="you@example.com"
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
+            />
+          </div>
+          <div className="input-group">
+            <label className="input-label">Phone Number</label>
+            <input 
+              type="tel" 
+              required 
+              className="input-field" 
+              placeholder="+1 234 567 890"
+              value={formData.phone_number}
+              onChange={(e) => setFormData({...formData, phone_number: e.target.value})}
             />
           </div>
           <div className="input-group">

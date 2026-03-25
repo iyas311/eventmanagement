@@ -14,7 +14,7 @@ export default function Events() {
 
   const [bookingStep, setBookingStep] = useState(null); // null, 'details', 'payment', 'success'
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [bookingDetails, setBookingDetails] = useState({ quantity: 1, attendeeName: '' });
+  const [bookingDetails, setBookingDetails] = useState({ quantity: 1, attendeeName: '', email: '' });
 
   useEffect(() => {
     fetchEvents();
@@ -65,6 +65,7 @@ export default function Events() {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user) { alert("Please login first"); return; }
     setSelectedEvent(event);
+    setBookingDetails({ ...bookingDetails, attendeeName: user.username, email: user.email || '' });
     setBookingStep('details');
   };
 
@@ -76,7 +77,9 @@ export default function Events() {
       const bookRes = await axios.post('/api/bookings/bookings', {
         user_id: user.id,
         event_id: selectedEvent.id,
-        quantity: bookingDetails.quantity
+        quantity: bookingDetails.quantity,
+        attendee_name: bookingDetails.attendeeName,
+        email: bookingDetails.email
       });
       
       const booking = bookRes.data;
@@ -198,6 +201,10 @@ export default function Events() {
               <input className="input-field" placeholder="John Doe" value={bookingDetails.attendeeName} onChange={e => setBookingDetails({...bookingDetails, attendeeName: e.target.value})} />
             </div>
             <div className="input-group">
+              <label className="input-label">Notification Email</label>
+              <input className="input-field" placeholder="john@example.com" value={bookingDetails.email} onChange={e => setBookingDetails({...bookingDetails, email: e.target.value})} />
+            </div>
+            <div className="input-group">
               <label className="input-label">Quantity</label>
               <input type="number" className="input-field" min="1" max={selectedEvent.capacity} value={bookingDetails.quantity} onChange={e => setBookingDetails({...bookingDetails, quantity: parseInt(e.target.value)})} />
             </div>
@@ -307,7 +314,7 @@ export default function Events() {
       
       <style dangerouslySetInnerHTML={{__html: `
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 1rem; }
-        .modal-content { width: 100%; animation: modalIn 0.3s ease-out; }
+        .modal-content { width: 100%; animation: modalIn 0.3s ease-out; background: var(--bg-card); color: var(--text-main); }
         @keyframes modalIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin { animation: spin 1s linear infinite; }
