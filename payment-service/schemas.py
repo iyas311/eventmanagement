@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional, List
 
 class PaymentCreate(BaseModel):
     booking_id: int
@@ -11,6 +12,7 @@ class PaymentOut(BaseModel):
     amount: float
     status: str
     transaction_id: str
+    warnings: Optional[List[str]] = []
     
     class Config:
         from_attributes = True
