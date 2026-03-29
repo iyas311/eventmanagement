@@ -54,6 +54,7 @@ spec:
         name: users-db-storage
       spec:
         accessModes: ["ReadWriteOnce"]
+        storageClassName: users-db-storage
 
         resources:
           requests:
