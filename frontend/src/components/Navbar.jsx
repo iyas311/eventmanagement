@@ -42,7 +42,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 100 }}>
+    <nav style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 100 }}>
       <div className="flex-between" style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>
           <Calendar className="text-gradient" />
