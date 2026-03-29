@@ -10,22 +10,24 @@
 
 [data-theme='dark'] {
   --bg-dark: #0f172a;
-  --bg-card: rgba(30, 41, 59, 0.7);
+  --bg-card: rgb(30, 41, 59);
   --text-main: #f8fafc;
   --text-sub: #cbd5e1;
   --border: rgba(255, 255, 255, 0.1);
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   --input-bg: rgba(15, 23, 42, 0.6);
+  --bg-nav: rgba(15, 23, 42, 0.8);
 }
 
 [data-theme='light'] {
   --bg-dark: #f8fafc;
-  --bg-card: rgba(255, 255, 255, 0.7);
+  --bg-card: rgb(255, 255, 255);
   --text-main: #0f172a;
   --text-sub: #475569;
   --border: rgba(0, 0, 0, 0.1);
   --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
   --input-bg: rgba(255, 255, 255, 0.9);
+  --bg-nav: rgba(255, 255, 255, 0.8);
 }
 
 * {
@@ -38,7 +40,7 @@ body {
   font-family: 'Inter', sans-serif;
   background-color: var(--bg-dark);
   color: var(--text-main);
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
@@ -118,6 +120,10 @@ a:hover {
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
 
+[data-theme='dark'] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
 /* Buttons */
 .btn {
   display: inline-flex;
@@ -162,11 +168,13 @@ a:hover {
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
 .flex-between {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .grid-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -210,8 +218,15 @@ a:hover {
 }
 
 @keyframes modalIn {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .animate-spin {
@@ -219,6 +234,11 @@ a:hover {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }

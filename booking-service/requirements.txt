@@ -6,3 +6,5 @@ python-dotenv
 requests
 psycopg2-binary
 pymysql
+cryptography
+pika

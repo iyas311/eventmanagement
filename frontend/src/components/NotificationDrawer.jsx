@@ -29,6 +29,17 @@ export default function NotificationDrawer({ isOpen, onClose, userId }) {
     }
   };
 
+  const clearSingleNotification = async (e, notifId) => {
+    e.stopPropagation();
+    try {
+      if (!notifId) return; // Legacy fallback
+      await axios.delete(`/api/notifications/notifications/${userId}/${notifId}`);
+      setNotifications(prev => prev.filter(n => n.id !== notifId));
+    } catch (err) {
+      console.error("Failed to clear notification", err);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
@@ -62,9 +73,9 @@ export default function NotificationDrawer({ isOpen, onClose, userId }) {
           right: '-20px',
           width: '450px',
           maxHeight: '70vh',
-          background: 'rgba(15, 23, 42, 0.98)',
+          background: 'var(--bg-card)',
           backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
+          border: '1px solid var(--border)',
           borderRadius: '24px',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
           display: 'flex',
@@ -75,7 +86,7 @@ export default function NotificationDrawer({ isOpen, onClose, userId }) {
           zIndex: 1100
         }}
       >
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ background: 'rgba(99, 102, 241, 0.2)', padding: '8px', borderRadius: '12px' }}>
               <Bell size={20} className="text-primary" />
@@ -106,27 +117,40 @@ export default function NotificationDrawer({ isOpen, onClose, userId }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {notifications.map(n => (
-                <div key={n.id} className="glass-card" style={{ 
-                  padding: '1.25rem', 
-                  border: '1px solid var(--border)',
-                  background: 'rgba(var(--primary-rgb, 99, 102, 241), 0.05)',
-                  borderRadius: '16px'
-                }}>
-                  <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', lineHeight: 1.5, color: 'var(--text-main)' }}>{n.message}</p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
-                      {new Date(n.created_at).toLocaleDateString()} at {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 10px var(--primary)' }}></div>
+              {notifications.map((n, i) => {
+                const dateObj = new Date(n.created_at || new Date().toISOString());
+                return (
+                  <div key={n.id || i} className="glass-card" style={{ 
+                    padding: '1.25rem', 
+                    border: '1px solid var(--border)',
+                    background: 'rgba(var(--primary-rgb, 99, 102, 241), 0.05)',
+                    borderRadius: '16px',
+                    position: 'relative'
+                  }}>
+                    {n.id && (
+                      <button 
+                        onClick={(e) => clearSingleNotification(e, n.id)}
+                        style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer' }}
+                        title="Dismiss"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                    <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', lineHeight: 1.5, color: 'var(--text-main)', paddingRight: '1rem' }}>{n.message}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
+                        {dateObj.toLocaleDateString()} at {dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 10px var(--primary)' }}></div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
         
-        <div style={{ padding: '1.25rem', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ padding: '1.25rem', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
           <button className="btn btn-outline" style={{ width: '100%' }} onClick={onClose}>Close</button>
         </div>
       </div>

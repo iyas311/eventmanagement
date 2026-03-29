@@ -45,6 +45,7 @@ def generate_ticket(ticket: TicketCreate, db: Session = Depends(get_db)):
     
     try:
         requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+            "user_id": ticket.user_id,
             "recipient": f"user_of_booking_{ticket.booking_id}@example.com",
             "message": f"Your ticket code is {ticket_code}"
         })

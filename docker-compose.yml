@@ -1,18 +1,86 @@
 version: '3.8'
 
 services:
-  db:
+  users-db:
     image: postgres:15
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=postgres
-      - POSTGRES_MULTIPLE_DATABASES=users_db,events_db,booking_db,payment_db,ticket_db,notification_db
+      - POSTGRES_DB=users_db
     volumes:
-      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
-      - postgres_data:/var/lib/postgresql/data
+      - users_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d users_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  booking-db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=booking_db
+    volumes:
+      - booking_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  events-db:
+    image: mongo:6.0
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${DB_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - events_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  payment-db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=payment_db
+    volumes:
+      - payment_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d payment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ticket-db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=ticket_db
+    volumes:
+      - ticket_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ticket_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  notification-redis:
+    image: redis:7.0-alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,9 +91,9 @@ services:
       - "8001:8001"
     environment:
       - PORT=8001
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/users_db
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@users-db:5432/users_db
     depends_on:
-      db:
+      users-db:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8001/\")'"]
@@ -39,9 +107,12 @@ services:
       - "8002:8002"
     environment:
       - PORT=8002
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/events_db
+      - MONGO_URI=mongodb://${DB_USER}:${DB_PASSWORD}@events-db:27017/
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
-      db:
+      events-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8002/\")'"]
@@ -55,11 +126,13 @@ services:
       - "8003:8003"
     environment:
       - PORT=8003
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/booking_db
+      - DATABASE_URL=mysql+pymysql://root:${DB_PASSWORD}@booking-db:3306/booking_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - EVENTS_SERVICE_URL=http://events-service:8002
-      - NOTIFICATION_SERVICE_URL=http://notification-service:8006
     depends_on:
-      db:
+      booking-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8003/\")'"]
@@ -73,11 +146,14 @@ services:
       - "8004:8004"
     environment:
       - PORT=8004
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/payment_db
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@payment-db:5432/payment_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - BOOKING_SERVICE_URL=http://booking-service:8003
       - TICKET_SERVICE_URL=http://ticket-service:8005
     depends_on:
-      db:
+      payment-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8004/\")'"]
@@ -91,10 +167,13 @@ services:
       - "8005:8005"
     environment:
       - PORT=8005
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/ticket_db
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@ticket-db:5432/ticket_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - NOTIFICATION_SERVICE_URL=http://notification-service:8006
     depends_on:
-      db:
+      ticket-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8005/\")'"]
@@ -108,12 +187,15 @@ services:
       - "8006:8006"
     environment:
       - PORT=8006
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/notification_db
+      - REDIS_URL=redis://notification-redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
-      db:
+      notification-redis:
+        condition: service_started
+      rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8006/\")'"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8006/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -134,12 +216,11 @@ services:
       - "8008:8008"
     environment:
       - PORT=8008
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - BOOKING_SERVICE_URL=http://booking-service:8003
       - EVENTS_SERVICE_URL=http://events-service:8002
     depends_on:
-      booking-service:
-        condition: service_healthy
-      events-service:
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8008/\")'"]
@@ -151,23 +232,10 @@ services:
     build: ./frontend
     ports:
       - "3000:80"
-    depends_on:
-      users-service:
-        condition: service_healthy
-      events-service:
-        condition: service_healthy
-      booking-service:
-        condition: service_healthy
-      payment-service:
-        condition: service_healthy
-      ticket-service:
-        condition: service_healthy
-      notification-service:
-        condition: service_healthy
-      ai-service:
-        condition: service_healthy
-      admin-service:
-        condition: service_healthy
 
 volumes:
-  postgres_data:
+  users_data:
+  booking_data:
+  events_data:
+  payment_data:
+  ticket_data:

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
+import { toast } from 'react-hot-toast';
+
 export default function Register() {
   const [formData, setFormData] = useState({ 
     username: '', 
@@ -21,6 +23,7 @@ export default function Register() {
     setError('');
     try {
       await axios.post('/api/users/register', formData);
+      toast.success('Registration successful! Please log in.');
       navigate('/login');
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed');

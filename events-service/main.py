@@ -1,21 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine, Base, get_db
-from models import Event
+from database import get_db
 from schemas import EventCreate, EventOut
 import os
 from typing import List
 from dotenv import load_dotenv
-import traceback
+import random
 
 load_dotenv()
-
-try:
-    Base.metadata.create_all(bind=engine)
-except Exception:
-    print("Database init failed:")
-    traceback.print_exc()
 
 app = FastAPI(title="events-service")
 
@@ -29,68 +21,79 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"service": "events-service", "status": "running"}
+    return {"service": "events-service", "status": "running", "db": "mongodb"}
+
+def format_event(doc):
+    if not doc: return None
+    # Use our custom integer id
+    if "_id" in doc:
+        del doc["_id"]
+    return doc
 
 @app.get("/events", response_model=List[EventOut])
-def get_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    try:
-        events = db.query(Event).offset(skip).limit(limit).all()
-        return events
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print(f"Error fetching events: {error_trace}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+def get_events(search: str = Query(None), skip: int = 0, limit: int = 100, coll = Depends(get_db)):
+    query = {}
+    if search:
+        # Case-insensitive search on title
+        query = {"title": {"$regex": search, "$options": "i"}}
+    
+    cursor = coll.find(query).skip(skip).limit(limit)
+    events = [format_event(doc) for doc in cursor]
+    return events
 
 @app.post("/events", response_model=EventOut)
-def create_event(event: EventCreate, db: Session = Depends(get_db)):
-    new_event = Event(**event.model_dump())
-    db.add(new_event)
-    db.commit()
-    db.refresh(new_event)
-    return new_event
+def create_event(event: EventCreate, coll = Depends(get_db)):
+    event_dict = event.model_dump()
+    # Generate integer ID to be compatible with other SQL services
+    event_dict["id"] = random.randint(10000, 99999999)
+    coll.insert_one(event_dict)
+    return event_dict
 
 @app.get("/events/{event_id}", response_model=EventOut)
-def get_event(event_id: int, db: Session = Depends(get_db)):
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
+def get_event(event_id: int, coll = Depends(get_db)):
+    doc = coll.find_one({"id": event_id})
+    if not doc:
         raise HTTPException(status_code=404, detail="Event not found")
-    return event
+    return format_event(doc)
 
 @app.put("/events/{event_id}", response_model=EventOut)
-def update_event(event_id: int, event_update: EventCreate, db: Session = Depends(get_db)):
-    db_event = db.query(Event).filter(Event.id == event_id).first()
-    if not db_event:
-        raise HTTPException(status_code=404, detail="Event not found")
-    
+def update_event(event_id: int, event_update: EventCreate, coll = Depends(get_db)):
     update_data = event_update.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_event, key, value)
-    
-    db.commit()
-    db.refresh(db_event)
-    return db_event
+    res = coll.find_one_and_update(
+        {"id": event_id},
+        {"$set": update_data},
+        return_document=ReturnDocument.AFTER
+    )
+    if not res:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return format_event(res)
+
+from pymongo import ReturnDocument
 
 @app.put("/events/{event_id}/capacity")
-def reduce_capacity(event_id: int, amount: int = 1, db: Session = Depends(get_db)):
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
+def reduce_capacity(event_id: int, amount: int = 1, coll = Depends(get_db)):
+    doc = coll.find_one({"id": event_id})
+    if not doc:
         raise HTTPException(status_code=404, detail="Event not found")
-    if event.capacity < amount:
+    
+    if doc.get("capacity", 0) < amount:
         raise HTTPException(status_code=400, detail="Not enough capacity")
-    event.capacity -= amount
-    db.commit()
-    db.refresh(event)
-    return event
+    
+    res = coll.find_one_and_update(
+        {"id": event_id},
+        {"$inc": {"capacity": -amount}},
+        return_document=ReturnDocument.AFTER
+    )
+    return format_event(res)
 
 @app.get("/events/organizer/{organizer_id}", response_model=List[EventOut])
-def get_organizer_events(organizer_id: int, db: Session = Depends(get_db)):
-    return db.query(Event).filter(Event.organizer_id == organizer_id).all()
+def get_organizer_events(organizer_id: int, coll = Depends(get_db)):
+    cursor = coll.find({"organizer_id": organizer_id})
+    return [format_event(doc) for doc in cursor]
 
 @app.delete("/events/{event_id}")
-def delete_event(event_id: int, db: Session = Depends(get_db)):
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
+def delete_event(event_id: int, coll = Depends(get_db)):
+    res = coll.delete_one({"id": event_id})
+    if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Event not found")
-    db.delete(event)
-    db.commit()
     return {"message": "Event deleted successfully"}

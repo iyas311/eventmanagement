@@ -20,3 +20,4 @@ class EventOut(EventBase):
     
     class Config:
         from_attributes = True
+        extra = "ignore"

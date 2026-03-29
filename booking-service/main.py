@@ -5,8 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, get_db
 from models import Booking
 from schemas import BookingCreate, BookingOut
-import os
 import requests
+import json
+import pika
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,7 +31,17 @@ def read_root():
 
 EVENTS_SERVICE_URL = os.getenv("EVENTS_SERVICE_URL", "http://localhost:8002")
 
-NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://localhost:8006")
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+
+def publish_notification(payload):
+    try:
+        connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
+        channel = connection.channel()
+        channel.exchange_declare(exchange='notifications', exchange_type='fanout', durable=False)
+        channel.basic_publish(exchange='notifications', routing_key='', body=json.dumps(payload))
+        connection.close()
+    except Exception as e:
+        print(f"RabbitMQ publish failed: {e}")
 
 @app.post("/bookings", response_model=BookingOut)
 def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
@@ -65,26 +77,20 @@ def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
     db.refresh(new_booking)
 
     # Send notification to Attendee
-    try:
-        requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
-            "user_id": new_booking.user_id,
-            "recipient": new_booking.email or f"User {new_booking.user_id}",
-            "message": f"Booking successful! You've secured a spot for '{event_data.get('title')}'. 🎉"
-        })
-    except Exception as e:
-        print(f"Failed to notify attendee: {e}")
+    publish_notification({
+        "user_id": new_booking.user_id,
+        "recipient": new_booking.email or f"User {new_booking.user_id}",
+        "message": f"Booking successful! You've secured a spot for '{event_data.get('title')}'. 🎉"
+    })
 
     # Send notification to Organizer
     organizer_id = event_data.get("organizer_id")
     if organizer_id:
-        try:
-            requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
-                "user_id": organizer_id,
-                "recipient": f"Organizer {organizer_id}",
-                "message": f"Great news! A new booking has been made for your event '{event_data.get('title')}'. 📈"
-            })
-        except Exception as e:
-            print(f"Failed to notify organizer: {e}")
+        publish_notification({
+            "user_id": organizer_id,
+            "recipient": f"Organizer {organizer_id}",
+            "message": f"Great news! A new booking has been made for your event '{event_data.get('title')}'. 📈"
+        })
 
     return new_booking
 
@@ -95,6 +101,10 @@ def get_all_bookings(db: Session = Depends(get_db)):
 @app.get("/bookings/user/{user_id}", response_model=List[BookingOut])
 def get_user_bookings(user_id: int, db: Session = Depends(get_db)):
     return db.query(Booking).filter(Booking.user_id == user_id).all()
+
+@app.get("/bookings/event/{event_id}", response_model=List[BookingOut])
+def get_event_bookings(event_id: int, db: Session = Depends(get_db)):
+    return db.query(Booking).filter(Booking.event_id == event_id).all()
 
 @app.get("/bookings/{booking_id}", response_model=BookingOut)
 def get_booking(booking_id: int, db: Session = Depends(get_db)):
@@ -114,21 +124,18 @@ def pay_booking(booking_id: int, db: Session = Depends(get_db)):
 
     # Send notification for payment
     try:
-        # Get event data for organizer_id
         ev_res = requests.get(f"{EVENTS_SERVICE_URL}/events/{booking.event_id}")
         event_data = ev_res.json() if ev_res.status_code == 200 else {}
         
-        # Notify Attendee
-        requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+        publish_notification({
             "user_id": booking.user_id,
             "recipient": booking.email or f"User {booking.user_id}",
             "message": f"Payment successful! Your ticket for '{event_data.get('title')}' is now confirmed. 🎟️"
         })
         
-        # Notify Organizer
         organizer_id = event_data.get("organizer_id")
         if organizer_id:
-            requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+            publish_notification({
                 "user_id": organizer_id,
                 "recipient": f"Organizer {organizer_id}",
                 "message": f"Success! A booking for '{event_data.get('title')}' has been paid and confirmed. 💰"

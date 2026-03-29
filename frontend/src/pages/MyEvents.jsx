@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, MapPin, Users, Trash2, Plus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Calendar, Users, Trash2, Plus, Edit } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function MyEvents() {
   const [events, setEvents] = useState([]);
@@ -11,9 +11,15 @@ export default function MyEvents() {
 
   const [editingEvent, setEditingEvent] = useState(null);
   const [editFormData, setEditFormData] = useState({});
+  const navigate = useNavigate();
+  const [expandedEventId, setExpandedEventId] = useState(null);
+  const [participants, setParticipants] = useState({});
+
+  useEffect(() => {
+    if (user?.id) fetchMyEvents();
+  }, [user?.id]);
 
   const fetchMyEvents = async () => {
-    if (!user) return;
     try {
       const res = await axios.get(`/api/events/events/organizer/${user.id}`);
       setEvents(res.data);
@@ -24,9 +30,20 @@ export default function MyEvents() {
     }
   };
 
-  useEffect(() => {
-    fetchMyEvents();
-  }, [user?.id]);
+  const loadParticipants = async (eventId) => {
+    if (participants[eventId]) {
+      // Toggle off if already loaded
+      setExpandedEventId(expandedEventId === eventId ? null : eventId);
+      return;
+    }
+    try {
+      const res = await axios.get(`/api/bookings/bookings/event/${eventId}`);
+      setParticipants(prev => ({ ...prev, [eventId]: res.data }));
+      setExpandedEventId(eventId);
+    } catch (err) {
+      console.error("Failed to load participants", err);
+    }
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this event?')) return;
@@ -36,11 +53,6 @@ export default function MyEvents() {
     } catch (err) {
       alert('Failed to delete event');
     }
-  };
-
-  const handleEditClick = (event) => {
-    setEditingEvent(event);
-    setEditFormData({ ...event });
   };
 
   const handleEditSubmit = async (e) => {
@@ -54,17 +66,18 @@ export default function MyEvents() {
     }
   };
 
+
+
   if (loading) return <div style={{ textAlign: 'center', padding: '4rem' }}>Loading your events...</div>;
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem' }}>
-      {/* ... existing header ... */}
       <div className="flex-between" style={{ marginBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>My <span className="text-gradient">Events</span></h1>
-          <p style={{ color: 'var(--text-sub)' }}>Manage the events you've created</p>
+          <p style={{ color: 'var(--text-sub)' }}>Manage the events you've created and view participants</p>
         </div>
-        <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <button onClick={() => navigate('/events?create=true')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Plus size={20} /> Create New Event
         </button>
       </div>
@@ -76,59 +89,94 @@ export default function MyEvents() {
           <Calendar size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
           <h3>No events found</h3>
           <p style={{ color: 'var(--text-sub)', marginBottom: '2rem' }}>You haven't created any events yet.</p>
-          <button className="btn btn-outline">Start Creating</button>
+          <button onClick={() => navigate('/events?create=true')} className="btn btn-outline">Start Creating</button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '2rem' }}>
-          {events.map(event => (
-            <div key={event.id} className="glass-card event-card" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '1.25rem' }}>
-              <div style={{ position: 'relative', height: '200px', borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem', background: 'var(--bg-dark)' }}>
-                {event.image_url ? (
-                  <img 
-                    src={event.image_url} 
-                    alt={event.title}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3 }}>
-                    <Calendar size={48} />
-                  </div>
-                )}
-                <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '0.5rem' }}>
-                  <button 
-                    onClick={() => handleDelete(event.id)}
-                    className="btn-icon"
-                    style={{ background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none' }}
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-              
-              <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-main)' }}>{event.title}</h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', color: 'var(--text-sub)', fontSize: '0.9rem', flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Calendar size={16} className="text-primary" /> {event.date}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <MapPin size={16} className="text-primary" /> {event.location}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Users size={16} className="text-primary" /> {event.capacity} Capacity
-                </div>
-              </div>
-              
-              <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>${event.price}</span>
-                <button onClick={() => handleEditClick(event)} className="btn btn-outline" style={{ fontSize: '0.85rem' }}>Edit Details</button>
-              </div>
-            </div>
-          ))}
+        <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)' }}>
+              <tr>
+                <th style={{ padding: '1rem' }}>Event Title</th>
+                <th style={{ padding: '1rem' }}>Date</th>
+                <th style={{ padding: '1rem' }}>Location</th>
+                <th style={{ padding: '1rem' }}>Price</th>
+                <th style={{ padding: '1rem' }}>Capacity</th>
+                <th style={{ padding: '1rem', textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map(event => (
+                <React.Fragment key={event.id}>
+                  <tr style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: '1rem', fontWeight: 600 }}>{event.title}</td>
+                    <td style={{ padding: '1rem', color: 'var(--text-sub)' }}>{event.date}</td>
+                    <td style={{ padding: '1rem', color: 'var(--text-sub)' }}>{event.location}</td>
+                    <td style={{ padding: '1rem' }}>${event.price}</td>
+                    <td style={{ padding: '1rem' }}>{event.capacity} left</td>
+                    <td style={{ padding: '1rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} onClick={() => loadParticipants(event.id)}>
+                        <Users size={16} style={{ display: 'inline', marginRight: '4px' }}/> View Participants
+                      </button>
+                      <button className="btn btn-outline" style={{ padding: '0.4rem 0.8rem' }} onClick={() => { setEditingEvent(event); setEditFormData({ ...event }); }}>
+                        <Edit size={16} />
+                      </button>
+                      <button className="btn btn-outline" style={{ borderColor: '#ef4444', color: '#ef4444', padding: '0.4rem 0.8rem' }} onClick={() => handleDelete(event.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                  
+                  {expandedEventId === event.id && (
+                    <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
+                      <td colSpan="6" style={{ padding: '1.5rem', borderTop: '1px solid var(--border)' }}>
+                        <h4 style={{ marginBottom: '1rem', color: 'var(--primary)' }}>Participants ({participants[event.id]?.length || 0})</h4>
+                        {(participants[event.id] || []).length === 0 ? (
+                          <p style={{ color: 'var(--text-sub)', fontStyle: 'italic' }}>No tickets booked yet.</p>
+                        ) : (
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <thead>
+                              <tr style={{ color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' }}>
+                                <th style={{ padding: '0.5rem', textAlign: 'left' }}>Attendee Name</th>
+                                <th style={{ padding: '0.5rem', textAlign: 'left' }}>Email</th>
+                                <th style={{ padding: '0.5rem', textAlign: 'left' }}>Quantity</th>
+                                <th style={{ padding: '0.5rem', textAlign: 'left' }}>Amount Paid</th>
+                                <th style={{ padding: '0.5rem', textAlign: 'left' }}>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {participants[event.id].map(p => (
+                                <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <td style={{ padding: '0.5rem', fontWeight: 500 }}>{p.attendee_name}</td>
+                                  <td style={{ padding: '0.5rem', color: 'var(--text-sub)' }}>{p.email || 'N/A'}</td>
+                                  <td style={{ padding: '0.5rem' }}>{p.quantity}</td>
+                                  <td style={{ padding: '0.5rem' }}>${p.amount}</td>
+                                  <td style={{ padding: '0.5rem' }}>
+                                    <span style={{ 
+                                      padding: '0.2rem 0.5rem', 
+                                      borderRadius: '4px', 
+                                      fontSize: '0.8rem',
+                                      background: p.status === 'PAID' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                                      color: p.status === 'PAID' ? '#4ade80' : '#facc15'
+                                    }}>
+                                      {p.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Modal retained here intentionally... */}
       {editingEvent && (
         <div className="modal-overlay" onClick={() => setEditingEvent(null)}>
           <div className="glass-card" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px', animation: 'modalIn 0.3s ease-out' }}>
@@ -136,50 +184,19 @@ export default function MyEvents() {
             <form onSubmit={handleEditSubmit}>
               <div className="input-group">
                 <label className="input-label">Title</label>
-                <input 
-                  className="input-field"
-                  value={editFormData.title}
-                  onChange={e => setEditFormData({ ...editFormData, title: e.target.value })}
-                  required
-                />
+                <input className="input-field" value={editFormData.title} onChange={e => setEditFormData({ ...editFormData, title: e.target.value })} required />
               </div>
               <div className="input-group">
                 <label className="input-label">Date</label>
-                <input 
-                  type="date"
-                  className="input-field"
-                  value={editFormData.date}
-                  onChange={e => setEditFormData({ ...editFormData, date: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Location</label>
-                <input 
-                  className="input-field"
-                  value={editFormData.location}
-                  onChange={e => setEditFormData({ ...editFormData, location: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Image URL</label>
-                <input 
-                  className="input-field"
-                  placeholder="https://example.com/image.jpg"
-                  value={editFormData.image_url || ''}
-                  onChange={e => setEditFormData({ ...editFormData, image_url: e.target.value })}
-                />
+                <input type="date" className="input-field" value={editFormData.date} onChange={e => setEditFormData({ ...editFormData, date: e.target.value })} required />
               </div>
               <div className="input-group">
                 <label className="input-label">Price ($)</label>
-                <input 
-                  type="number"
-                  className="input-field"
-                  value={editFormData.price}
-                  onChange={e => setEditFormData({ ...editFormData, price: parseFloat(e.target.value) })}
-                  required
-                />
+                <input type="number" className="input-field" value={editFormData.price} onChange={e => setEditFormData({ ...editFormData, price: parseFloat(e.target.value) })} required />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Capacity</label>
+                <input type="number" className="input-field" value={editFormData.capacity} onChange={e => setEditFormData({ ...editFormData, capacity: parseInt(e.target.value) })} required />
               </div>
               <div className="flex-between" style={{ marginTop: '2rem' }}>
                 <button type="button" className="btn btn-outline" onClick={() => setEditingEvent(null)}>Cancel</button>
@@ -189,6 +206,8 @@ export default function MyEvents() {
           </div>
         </div>
       )}
+
+
     </div>
   );
 }

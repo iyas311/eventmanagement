@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Calendar, Users, Loader2, MapPin, X, Sparkles } from 'lucide-react';
 
@@ -16,13 +17,27 @@ export default function Events() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [bookingDetails, setBookingDetails] = useState({ quantity: 1, attendeeName: '', email: '' });
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Auto-open create modal if navigated with ?create=true
   useEffect(() => {
-    fetchEvents();
+    if (searchParams.get('create') === 'true') {
+      setShowModal(true);
+      setSearchParams({}, { replace: true }); // clean up the URL
+    }
   }, []);
 
-  const fetchEvents = async () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchEvents(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchEvents = async (query = '') => {
     try {
-      const response = await axios.get('/api/events/events');
+      const response = await axios.get(`/api/events/events${query ? `?search=${query}` : ''}`);
       setEvents(response.data);
     } catch (err) {
       console.error("Failed to fetch events", err);
@@ -94,7 +109,17 @@ export default function Events() {
       setBookingStep('success');
       fetchEvents();
     } catch (err) {
-      alert(err.response?.data?.detail || "Booking failed");
+      let errorMsg = "Booking failed";
+      if (err.response?.data?.detail) {
+        if (Array.isArray(err.response.data.detail)) {
+          errorMsg = "Invalid input:\n" + err.response.data.detail.map(d => `- ${d.loc?.[1] || d.loc?.[0]}: ${d.msg}`).join('\n');
+        } else if (typeof err.response.data.detail === 'string') {
+          errorMsg = err.response.data.detail;
+        } else {
+          errorMsg = JSON.stringify(err.response.data.detail);
+        }
+      }
+      alert(errorMsg);
       setBookingStep(null);
     } finally {
       setBookingStatus(null);
@@ -109,22 +134,32 @@ export default function Events() {
           <p style={{ color: 'var(--text-sub)' }}>Find your next great experience.</p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1rem' }}>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            + Create Event
-          </button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="Search events..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ width: '250px' }}
+            />
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+              + Create Event
+            </button>
+          </div>
         </div>
       </div>
 
       {showModal && (
         <div className="modal-overlay">
-          <div className="glass-card modal-content" style={{ maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div className="glass-card modal-content" style={{ maxWidth: '750px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <h3 style={{ margin: 0 }}>Create New Event</h3>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer' }}><X size={20}/></button>
             </div>
             
-            <div style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
+            <div style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '0.75rem 1rem', borderRadius: '12px', marginBottom: '1.25rem', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 <div style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)', padding: '5px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
                   <Sparkles size={14} color="white"/>
                 </div>
@@ -151,37 +186,37 @@ export default function Events() {
             </div>
 
             <form onSubmit={handleCreateEvent}>
-              <div className="input-group">
-                <label className="input-label">Title</label>
-                <input className="input-field" required value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Description</label>
-                <textarea className="input-field" style={{ minHeight: '80px' }} required value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1.25rem' }}>
+                <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="input-label">Title</label>
+                  <input className="input-field" required value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
+                </div>
+                <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="input-label">Description</label>
+                  <textarea className="input-field" style={{ minHeight: '60px', resize: 'vertical' }} required value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} />
+                </div>
                 <div className="input-group">
                   <label className="input-label">Date</label>
                   <input type="date" className="input-field" required value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} />
                 </div>
                 <div className="input-group">
+                  <label className="input-label">Location (Venue)</label>
+                  <input className="input-field" placeholder="Grand Ballroom, Hotel X" required value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
+                </div>
+                <div className="input-group">
                   <label className="input-label">Price ($)</label>
                   <input type="number" className="input-field" required value={newEvent.price} onChange={e => setNewEvent({...newEvent, price: parseFloat(e.target.value)})} />
                 </div>
+                <div className="input-group">
+                  <label className="input-label">Capacity</label>
+                  <input type="number" className="input-field" required value={newEvent.capacity} onChange={e => setNewEvent({...newEvent, capacity: parseInt(e.target.value)})} />
+                </div>
+                <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="input-label">Image URL</label>
+                  <input className="input-field" placeholder="https://image.pollinations.ai/prompt/..." value={newEvent.image_url} onChange={e => setNewEvent({...newEvent, image_url: e.target.value})} />
+                </div>
               </div>
-              <div className="input-group">
-                <label className="input-label">Capacity</label>
-                <input type="number" className="input-field" required value={newEvent.capacity} onChange={e => setNewEvent({...newEvent, capacity: parseInt(e.target.value)})} />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Image URL</label>
-                <input className="input-field" placeholder="https://image.pollinations.ai/prompt/..." value={newEvent.image_url} onChange={e => setNewEvent({...newEvent, image_url: e.target.value})} />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Location (Venue)</label>
-                <input className="input-field" placeholder="Grand Ballroom, Hotel X" required value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                 <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Create</button>
               </div>
