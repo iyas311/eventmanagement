@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from typing import List
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,9 +26,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.status_code, "message": exc.detail}},
+    )
+
 @app.get("/")
 def read_root():
     return {"service": "booking-service", "status": "running"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 EVENTS_SERVICE_URL = os.getenv("EVENTS_SERVICE_URL", "http://localhost:8002")
 
@@ -46,7 +58,7 @@ def publish_notification(payload):
 @app.post("/bookings", response_model=BookingOut)
 def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
     try:
-        response = requests.get(f"{EVENTS_SERVICE_URL}/events/{booking.event_id}")
+        response = requests.get(f"{EVENTS_SERVICE_URL}/events/{booking.event_id}", timeout=5)
         if response.status_code != 200:
             raise HTTPException(status_code=404, detail="Event not found")
         event_data = response.json()
@@ -57,7 +69,7 @@ def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Not enough tickets available")
         
     try:
-        cap_response = requests.put(f"{EVENTS_SERVICE_URL}/events/{booking.event_id}/capacity?amount={booking.quantity}")
+        cap_response = requests.put(f"{EVENTS_SERVICE_URL}/events/{booking.event_id}/capacity?amount={booking.quantity}", timeout=5)
         if cap_response.status_code != 200:
             raise HTTPException(status_code=400, detail="Failed to reduce capacity")
     except requests.RequestException:
@@ -76,12 +88,22 @@ def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_booking)
 
+    warnings = []
     # Send notification to Attendee
     publish_notification({
         "user_id": new_booking.user_id,
         "recipient": new_booking.email or f"User {new_booking.user_id}",
         "message": f"Booking successful! You've secured a spot for '{event_data.get('title')}'. 🎉"
     })
+    try:
+        requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+            "user_id": new_booking.user_id,
+            "recipient": new_booking.email or f"User {new_booking.user_id}",
+            "message": f"Booking successful! You've secured a spot for '{event_data.get('title')}'. 🎉"
+        }, timeout=5)
+    except Exception as e:
+        print(f"Failed to notify attendee: {e}")
+        warnings.append("Failed to send email to attendee.")
 
     # Send notification to Organizer
     organizer_id = event_data.get("organizer_id")
@@ -93,6 +115,27 @@ def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
         })
 
     return new_booking
+        try:
+            requests.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+                "user_id": organizer_id,
+                "recipient": f"Organizer {organizer_id}",
+                "message": f"Great news! A new booking has been made for your event '{event_data.get('title')}'. 📈"
+            }, timeout=5)
+        except Exception as e:
+            print(f"Failed to notify organizer: {e}")
+            warnings.append("Failed to notify organizer about new booking.")
+
+    return BookingOut(
+        id=new_booking.id,
+        user_id=new_booking.user_id,
+        event_id=new_booking.event_id,
+        status=new_booking.status,
+        amount=new_booking.amount,
+        quantity=new_booking.quantity,
+        attendee_name=new_booking.attendee_name,
+        email=new_booking.email,
+        warnings=warnings
+    )
 
 @app.get("/bookings", response_model=List[BookingOut])
 def get_all_bookings(db: Session = Depends(get_db)):
@@ -122,16 +165,19 @@ def pay_booking(booking_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(booking)
 
+    warnings = []
     # Send notification for payment
     try:
         ev_res = requests.get(f"{EVENTS_SERVICE_URL}/events/{booking.event_id}")
+        # Get event data for organizer_id
+        ev_res = requests.get(f"{EVENTS_SERVICE_URL}/events/{booking.event_id}", timeout=5)
         event_data = ev_res.json() if ev_res.status_code == 200 else {}
         
         publish_notification({
             "user_id": booking.user_id,
             "recipient": booking.email or f"User {booking.user_id}",
             "message": f"Payment successful! Your ticket for '{event_data.get('title')}' is now confirmed. 🎟️"
-        })
+        }, timeout=5)
         
         organizer_id = event_data.get("organizer_id")
         if organizer_id:
@@ -139,8 +185,19 @@ def pay_booking(booking_id: int, db: Session = Depends(get_db)):
                 "user_id": organizer_id,
                 "recipient": f"Organizer {organizer_id}",
                 "message": f"Success! A booking for '{event_data.get('title')}' has been paid and confirmed. 💰"
-            })
+            }, timeout=5)
     except Exception as e:
+        warnings.append("Failed to send payment notifications.")
         print(f"Failed to send payment notifications: {e}")
 
-    return booking
+    return BookingOut(
+        id=booking.id,
+        user_id=booking.user_id,
+        event_id=booking.event_id,
+        status=booking.status,
+        amount=booking.amount,
+        quantity=booking.quantity,
+        attendee_name=booking.attendee_name,
+        email=booking.email,
+        warnings=warnings
+    )

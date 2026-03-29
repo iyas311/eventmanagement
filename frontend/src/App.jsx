@@ -19,6 +19,9 @@ const SOCKET_URL = window.location.hostname === 'localhost'
 
 const socket = io(SOCKET_URL, { autoConnect: false });
 
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+
 function App() {
   
   useEffect(() => {
@@ -58,9 +61,25 @@ function App() {
             <Route path="/events" element={<Events />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/bookings" element={<MyBookings />} />
-            <Route path="/my-events" element={<MyEvents />} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            
+            {/* Protected Routes - Only logged in users can access these! */}
+             <Route path="/bookings" element={
+              <ProtectedRoute>
+                <MyBookings />
+              </ProtectedRoute>
+            } />
+            <Route path="/my-events" element={
+              <ProtectedRoute>
+                <MyEvents />
+              </ProtectedRoute>
+            } />
+
+            {/* Admin Routes - Only Admins can access this! */}
+            <Route path="/admin" element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            } />
           </Routes>
         </main>
       </div>

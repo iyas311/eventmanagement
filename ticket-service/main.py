@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,9 +25,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.status_code, "message": exc.detail}},
+    )
+
 @app.get("/")
 def read_root():
     return {"service": "ticket-service", "status": "running"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://localhost:8006")
 
@@ -48,7 +60,7 @@ def generate_ticket(ticket: TicketCreate, db: Session = Depends(get_db)):
             "user_id": ticket.user_id,
             "recipient": f"user_of_booking_{ticket.booking_id}@example.com",
             "message": f"Your ticket code is {ticket_code}"
-        })
+        }, timeout=5)
     except requests.RequestException as e:
         print(f"Failed to trigger notification: {e}")
 

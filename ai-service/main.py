@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List
 import os
@@ -17,6 +18,13 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = FastAPI(title="ai-service")
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.status_code, "message": exc.detail}},
+    )
 
 class EventGenerationRequest(BaseModel):
     keywords: str
@@ -56,6 +64,10 @@ prompt = ChatPromptTemplate.from_template(
 @app.get("/")
 def read_root():
     return {"status": "ok", "service": "ai-service"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 @app.post("/generate", response_model=EventGenerationResponse)
 async def generate_event(request: EventGenerationRequest):

@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional, List
 
 class BookingCreate(BaseModel):
     user_id: int
@@ -16,6 +17,7 @@ class BookingOut(BaseModel):
     quantity: int
     attendee_name: str
     email: str
+    warnings: Optional[List[str]] = []
     
     class Config:
         from_attributes = True

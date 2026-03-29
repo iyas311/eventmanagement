@@ -1,4 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_db
 from schemas import EventCreate, EventOut
@@ -19,6 +22,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.status_code, "message": exc.detail}},
+    )
+
 @app.get("/")
 def read_root():
     return {"service": "events-service", "status": "running", "db": "mongodb"}
@@ -29,6 +39,10 @@ def format_event(doc):
     if "_id" in doc:
         del doc["_id"]
     return doc
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 @app.get("/events", response_model=List[EventOut])
 def get_events(search: str = Query(None), skip: int = 0, limit: int = 100, coll = Depends(get_db)):
